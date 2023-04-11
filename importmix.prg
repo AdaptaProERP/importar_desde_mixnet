@@ -177,6 +177,9 @@ FUNCTION IMPORT()
     oImpMix:nTables:=EJECUTAR("IMPORTINVMIX",oImpMix:cDir,oImpMix:oMeterT,oImpMix:oMeterR,oImpMix:oSayTable,oImpMix:oSayRecord,;
                      oImpMix:nTables,oImpMix:lInicia)
 
+    oImpMix:nTables:=EJECUTAR("IMPORTMOVMIX",oImpMix:cDir,oImpMix:oMeterT,oImpMix:oMeterR,oImpMix:oSayTable,oImpMix:oSayRecord,;
+                     oImpMix:nTables,oImpMix:lInicia)
+
   ENDIF
 
   IF oImpMix:lCxP 

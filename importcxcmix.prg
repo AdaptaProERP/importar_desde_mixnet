@@ -26,7 +26,7 @@ PROCE MAIN(cDir,oMeterT,oMeterR,oSayT,oSayR,nTables,lInicia)
    oDp:lTracer:=.F.
 
    IF lInicia
-      SQLDELETE("DPDOCCLI")
+      SQLDELETE("DPDOCCLI","DOC_USUARI"+GetWhere("=","MIX"))
    ENDIF
 
    DPCXC(cDir)
@@ -127,6 +127,7 @@ PROCE DPCXC(cDir)
      oTable:Replace("DOC_TIPDOC",cTipDoc      )
      oTable:Replace("DOC_CODMON",cCodMon      )
      oTable:Replace("DOC_DOCORG","D"          )
+     oTable:Replace("DOC_USUARI","MIX")
 
      oTable:Commit()
 
