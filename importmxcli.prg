@@ -13,10 +13,11 @@ PROCE MAIN(cDir,oMeterT,oMeterR,oSayT,oSayR,nTables,lIniciar,cCodCli)
    LOCAL lActividad:=.F. // No crea Actividad
    LOCAL lCliTrans :=.F. // Solo Clientes con Transacciones
    LOCAL cNombre   :=""
+   LOCAL oTableD,oTableCar,oTableACT,oTablePRE,oTableCLA
 
-   DEFAULT cDir:="C:\MIX\",;
-           nTables:=0,;
-           lIniciar:=.T.,;
+   DEFAULT cDir    :="C:\MIXCLUB\COMP01\",;
+           nTables  :=0,;
+           lIniciar :=.T.,;
            oDp:cMemo:=""
 
    rddSetDefault( "DBF" )
@@ -49,7 +50,7 @@ PROCE MAIN(cDir,oMeterT,oMeterR,oSayT,oSayR,nTables,lIniciar,cCodCli)
 RETURN nTables
 
 PROCE DPCLIENTES(cCodCli)
-  LOCAL cFile:=cDir+"MXCTACLI",nContar:=0,oTable,oTableP,cPrecio:="",cCodCla:="",cCodAct:=""
+  LOCAL cFile:=cDir+"MXCTACLI.DBF",nContar:=0,oTable,oTableP,cPrecio:="",cCodCla:="",cCodAct:=""
   LOCAL cRepres:="Representante Legal",nSysR:=0,nRecno:=0,I,uValue,nPos,cWhere
 
   DEFAULT cCodCli:=""
@@ -59,14 +60,29 @@ PROCE DPCLIENTES(cCodCli)
 //  oTableP:=OpenTable("DPCLIENTESPER" , .F. )
 
   CLOSE ALL
+  IF !FILE(cFile)
+     MsgMemo("Archivo "+cFile+" no Existe")
+     RETURN .F.
+  ENDIF
+
   SELE A
-  USE (cFile) SHARED NEW ALIAS "DPCLI"
+  USE (cFile) EXCLU NEW ALIAS "DPCLI"
   SET FILTER TO !DELETED()
 
   IF !Empty(cCodCli)
+
     SET FILTER TO !DELETED() .AND. ALLTRIM(CODCLI)==ALLTRIM(cCodCli)
+
   ELSE
-    SET FILTER TO !DELETED()
+
+    SET FILTER TO !DELETED
+
+    IF "CLUB"$cFile 
+      SET FILTER TO !DELETED() .AND. ALLTRIM(A->GRUPO)="01"
+    ENDIF
+
+    GO TOP
+
   ENDIF
 
   IF lMeter
@@ -76,14 +92,31 @@ PROCE DPCLIENTES(cCodCli)
 
   nContar:=0
   oTableP:=OpenTable("SELECT * FROM DPCLIENTESPER",.F.) // INSERTINTO("DPCLIENTESPER")
-  oTable :=OpenTable("SELECT * FROM DPCLIENTES"   ,.F.) // INSERTINTO("DPCLIENTES")
+  oTableP:lAuditar:=.F.
 
-  SELE DPCLI
+  oTable :=OpenTable("SELECT * FROM DPCLIENTES"   ,.F.) // INSERTINTO("DPCLIENTES")
+  oTable:lAuditar:=.F.
+
+  SELECT DPCLI
+
+/*
+ ? "AQUI",ALIAS(),RECCOUNT()
+VIEWARRAY(DBSTRUCT())
+
+// A->(BROWSE())
+ RETURN .T.
+*/
+
   GO TOP
 
   WHILE !DPCLI->(EOF())
 
      SELECT DPCLI
+
+     IF "CLUB"$cFile .AND. !ALLTRIM(A->GRUPO)="01"
+       SKIP
+       LOOP
+     ENDIF
 
      // ? CLI_CODIGO
 
@@ -133,7 +166,7 @@ PROCE DPCLIENTES(cCodCli)
 
      cPrecio:=BUILDPRECIO(TARIFA)
      cCodCla:=BUILDCLACLI(GRUPO)
-     cCodAct:=BUILDACTIVI(DPCLI->CODACTI)
+     cCodAct:=DPCLI->CODACTI // BUILDACTIVI(DPCLI->CODACTI)
 
      oTable:AppendBlank()
      oTable:Replace("CLI_CODIGO"  ,cCodCli)
@@ -164,6 +197,7 @@ PROCE DPCLIENTES(cCodCli)
      oTable:Replace("CLI_MUNICI" ,oDp:cMunicipio)
      oTable:Replace("CLI_PARROQ" ,oDp:cParroquia)
 
+     oTable:lAuditar:=.F.
      oTable:Commit("")
 
      IF !Empty(CONTACTO) 
@@ -199,7 +233,7 @@ RETURN NIL
 // Genera Actividad Econ¢mica
 */
 FUNCTION BUILDACTIVI(cCodigo)
-  LOCAL oTable,cWhere
+  LOCAL oTable,cWhere,nLen
 
   IF Empty(cCodigo)
     cCodigo:=STRZERO(1,6)
@@ -211,15 +245,17 @@ FUNCTION BUILDACTIVI(cCodigo)
      RETURN cCodigo
   ENDIF
 
-  cCodigo:=SQLINCREMENTAL("DPACTIVIDAD_E","ACT_CODIGO")
+  // cCodigo:=SQLINCREMENTAL("DPACTIVIDAD_E","ACT_CODIGO",[LEFT(ACT_CODIGO,1)="0"],NIL,NIL,.T.,6)
 
-  oTable:=OpenTable("SELECT * FROM DPACTIVIDAD_E",.F.)
-  oTable:AppendBlank()
-  oTable:Replace("ACT_CODIGO",cCodigo)
-  oTable:Replace("ACT_DESCRI",cNombre)
-  oTable:Replace("ACT_COMEN1","Desde DP20")
-  oTable:Commit()
-  oTable:End()
+  DEFAULT oTableACT:=OpenTable("SELECT * FROM DPACTIVIDAD_E",.F.)
+
+  oTableACT:AppendBlank()
+  oTableACT:Replace("ACT_CODIGO",cCodigo)
+  oTableACT:Replace("ACT_DESCRI",cNombre)
+  oTableACT:Replace("ACT_COMEN1","Desde MIXNET")
+  oTableACT:lAuditar:=.F.
+  oTableACT:Commit()
+//  oTable:End()
 
 RETURN cCodigo
 
@@ -227,17 +263,20 @@ RETURN cCodigo
 // Genera Cargos
 */
 FUNCTION BUILDCARGO(cNombre)
-  LOCAL oTable
+//  LOCAL oTable
 
   IF COUNT("DPCARGOS","CAR_CODIGO"+GETWHERE("=",cNombre))>0
       RETURN cNombre
   ENDIF
 
-  oTable:=OpenTable("SELECT * FROM DPCARGOS",.F.)
-  oTable:AppendBlank()
-  oTable:Replace("CAR_CODIGO",cNombre)
-  oTable:Commit()
-  oTable:End()
+  DEFAULT oTableCar:=OpenTable("SELECT * FROM DPCARGOS",.F.)
+
+  oTableCar:AppendBlank()
+  oTableCar:Replace("CAR_CODIGO",cNombre)
+  oTableCar:Commit()
+  oTableCar:lAuditar:=.F.
+
+//oTable:End()
 
 RETURN cNombre
 
@@ -263,12 +302,15 @@ FUNCTION BUILDCLACLI(cCodCla)
      RETURN cCodCla
   ENDIF
     
-  oTable:=OpenTable("DPCLICLA",.F.)
-  oTable:AppendBlank()
-  oTable:Replace("CLC_CODIGO",cCodCla)
-  oTable:Replace("CLC_DESCRI",cNomCla)
-  oTable:Commit()
-  oTable:End()
+  DEFAULT oTableCla:=OpenTable("DPCLICLA",.F.)
+
+  oTableCla:AppendBlank()
+  oTableCla:Replace("CLC_CODIGO",cCodCla)
+  oTableCla:Replace("CLC_DESCRI",cNomCla)
+  oTableCla:lAuditar:=.T.
+  oTableCla:Commit()
+
+//   oTable:End()
 
 RETURN cCodCla
 
@@ -357,7 +399,7 @@ RETURN nNumMem
 // Crea los Precios
 */
 FUNCTION BUILDPRECIO(cTipPrecio)
-  LOCAL oTable
+  //LOCAL oTable
   
    cTipPrecio:=IIF(Empty(cTipPrecio),"A",cTipPrecio)
 
@@ -365,12 +407,13 @@ FUNCTION BUILDPRECIO(cTipPrecio)
       RETURN cTipPrecio
    ENDIF
 
-   oTable:=OpenTable("DPPRECIOTIP",.F.)
-   oTable:Append()
-   oTable:Replace("TPP_CODIGO",cTipPrecio) 
-   oTable:Replace("TPP_DESCRI",cTipPrecio)   
-   oTable:Commit()
-   oTable:End()
+   DEFAULT oTablePRE:=OpenTable("DPPRECIOTIP",.F.)
+
+   oTablePRE:Append()
+   oTablePRE:Replace("TPP_CODIGO",cTipPrecio) 
+   oTablePRE:Replace("TPP_DESCRI",cTipPrecio)   
+   oTablePRE:Commit("")
+// oTable:End()
 
 RETURN cTipPrecio
 
@@ -503,12 +546,19 @@ FUNCTION IMPORTACT()
 
    LOCAL oTable
 
+   IF !FILE(cFile)
+      MsgMemo("Archivo "+cFile+"no Existe")
+      RETURN .F.
+   ENDIF
+
    CLOSE ALL
+
+   SQLDELETE("DPACTIVIDAD_E")
 
    oTable:=INSERTINTO("DPACTIVIDAD_E")
 
    SELE A
-   USE (ALLTRIM(cFile)) SHARED NEW ALIAS "DPACTECO"
+   USE (ALLTRIM(cFile)) EXCLU NEW ALIAS "DPACTECO"
    DBGOTOP()
 
    IF lMeter
@@ -532,24 +582,24 @@ FUNCTION IMPORTACT()
 
      ENDIF
 
-     IF ALLDIGIT(cCodAct)
-        cCodAct:=STRZERO(VAL(cCodAct),LEN(cCodAct))
-     ENDIF
-
-     IF !ISSQLGET("DPACTIVIDAD_E","ACT_CODIGO",cCodAct)
+//     IF ALLDIGIT(cCodAct)
+//        cCodAct:=STRZERO(VAL(cCodAct),LEN(cCodAct))
+//     ENDIF
+//     IF !ISSQLGET("DPACTIVIDAD_E","ACT_CODIGO",cCodAct)
 
         oTable:Replace("ACT_CODIGO",cCodAct)
-        oTable:Replace("ACT_DESCRI",ANSITOOEM(DPACTECO->NOMVEN))
+        oTable:Replace("ACT_DESCRI",ANSITOOEM(DPACTECO->NOMACTI))
 
         oTable:Commit()
 
-     ENDIF
+//     ENDIF
 
      DPACTECO->(DBSKIP())
 
    ENDDO
 
    USE
+
    oTable:End()
 
 RETURN .T.
