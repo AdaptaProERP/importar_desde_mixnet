@@ -10,7 +10,7 @@
 
 PROCE MAIN(cDir,cTipDoc,cDescri)
   LOCAL oTable,cFileDoc,cFileCli,cWhere,cCodInv,cWhere,cCodSuc:=oDp:cSucursal,nContar:=0,nValCam:=1
-  LOCAL cNumero:="",oMovInv,nMonto:=0,nPrecio
+  LOCAL cNumero:="",oMovInv,nMonto:=0,nPrecio,nCxC
   LOCAL nT1:=SECONDS()
 
   DEFAULT cDir   :="C:\MIXCLUB\COMP01\",;
@@ -25,10 +25,28 @@ PROCE MAIN(cDir,cTipDoc,cDescri)
   SQLDELETE("DPDOCCLI","DOC_TIPDOC"+GetWhere("=","CUO")+" AND DOC_TIPORG"+GetWhere("=","MIX"))
   SQLDELETE("DPMOVINV","MOV_ASOTIP"+GetWhere("=","MIX"))
 
+// oDp:lTracer:=.T.
 
-  oMovInv:=OpenTable("SELECT * FROM DPMOVINV",.F.)
+  nCxC   :=EJECUTAR("DPTIPCXC",cTipDoc)
 
-  oTable:=OpenTable("SELECT * FROM DPDOCCLI",.F.)
+//oMovInv:=OpenTable("SELECT * FROM DPMOVINV",.F.)
+  oMovInv:=INSERTINTO("DPMOVINV")
+
+  // IF "TTABLE"$oMovInv:ClassName()
+    oMovInv:lAuditar:=.F.
+    oMovInv:lFileLog:=.F.
+  // ENDIF
+
+
+// oTable:=OpenTable("DPDOCCLI",.F.)
+  oTable:=INSERTINTO("DPDOCCLI")
+
+
+  //IF "TTABLE"$oTable:ClassName()
+     oTable:lAuditar:=.F.
+     oTable:lFileLog:=.F.
+  // ENDIF
+
   oTable:EXECUTE("SET FOREIGN_KEY_CHECKS = 0")
 
   CLOSE ALL
@@ -55,7 +73,9 @@ PROCE MAIN(cDir,cTipDoc,cDescri)
           nMonto:=ROUND(41*nValCam,2)
        ENDIF
 
-       EJECUTAR("DPDOCCLICREA",NIL,cTipDoc,cNumero,B->CLIENTE,B->EMISION,oDp:cMonedaExt,"V",NIL,nMonto,IMP_IVA,nValCam,VENCE)
+//PROCE MAIN(cCodSuc,cTipDoc,cNumero,cCodCli,dFecha,cCodMon,cOrg,cCenCos,nMonto,nIva,nValCam,dFchVen,oTableO,oTable,cZona,nCxC)
+
+       EJECUTAR("DPDOCCLICREA",NIL,cTipDoc,cNumero,B->CLIENTE,B->EMISION,oDp:cMonedaExt,"V",NIL,nMonto,IMP_IVA,nValCam,VENCE,NIL,oTable,"N",nCxC)
 
        //EJECUTAR("DPDOCCLICREA",NIL,cTipDoc,B->NUMFAC,B->CLIENTE,B->EMISION,oDp:cMonedaExt,"V",NIL,TOT_FAC,IMP_IVA,CAMBIO,VENCE)
 
