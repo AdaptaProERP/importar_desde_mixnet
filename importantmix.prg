@@ -115,133 +115,25 @@ PROCE MAIN(cFile,lDelete)
   oTable:End()
   oMovInv:End()
 
+/*
   SELECT A
 
   GO TOP
+ 
+  WHILE !EOF()
+    aLine:={}
+    AEVAL(DBSTRUCT(),{|a,n| AADD(aLine,FIELDGET(n))})
+    AADD(aData,ACLONE(aLine))
+    SKIP
+  ENDDO
 
+  VIEWARRAY(DBSTRUCT())
 
- WHILE !EOF()
-   aLine:={}
-   AEVAL(DBSTRUCT(),{|a,n| AADD(aLine,FIELDGET(n))})
-   AADD(aData,ACLONE(aLine))
+  A->(BROWSE())
+  ViewArray(aData)
 
-
-
-   SKIP
- ENDDO
-
-VIEWARRAY(DBSTRUCT())
-
-A->(BROWSE())
-ViewArray(aData)
-
- CLOSE ALL
-
+  CLOSE ALL
+*/
 // oDp:lTracer:=.T.
 
 RETURN 
-
-
- oTable:=OpenTable("SELECT * FROM DPDOCCLI",.F.)
- oTable:Appendblank()
-
-ViewArray(oTable:aDefault)
-
- ? oTable:DOC_CODSUC
- 
-
-RETURN 
-
-/*
-  LOCAL cFile:="C:\AVICOLA\LIBRO.XLSX"
-  LOCAL cDestino,oMeter:=NIL,oSay:=NIL,lAuto:=NIL,nIni:=2,nCant:=NIL,nHead:=NIL,nColGet:=NIL,lStruct:=.F.,cMaxCol:=NIL,aSelect:=NIL
-
-? cFile,FILE(cFile)
-
-  EJECUTAR("XLSTODBF",cFile,cDestino,oMeter,oSay,lAuto,nIni,nCant,nHead,nColGet,lStruct,cMaxCol,aSelect)
-*/
-  
-
-RETURN 
-
-? SETLICGRT(.t.,.t.)
-
-  IF nT>oCon:nTimeMax 
-    EJECUTAR("MYSQLCHKCONN",.T.)
-  ENDIF
-
-// oCon:nSeconds,nT
-/*
-  oCon:=aDataBase[I,2]:oConnect
-
-  ABS(Seconds()-oForm:nSeconds) >= (oForm:nTimeMax)
-     MYSQLCHKCONN() // Validar la Apertura de la BD Usuarios Dormidos
-   ENDIF
-*/
-
-RETURN .T.
-
-PROCE XMAIN()
-  LOCAL oDb:=OpenOdbc(oDp:cDsnData),cSql
-
-  SQLUPDATE("DPRECIBOSCLI","REC_ESTADO","Nulo","REC_ACT=0")
-
-  cSql:=[ UPDATE DPDOCCLI ]+;
-        [ INNER JOIN DPRECIBOSCLI ON REC_CODSUC=DOC_CODSUC AND REC_NUMERO=DOC_RECNUM  ]+;
-        [ SET DOC_ACT=REC_ACT WHERE DOC_TIPDOC="IGT" AND REC_ACT<>DOC_ACT ]
-
-  oDb:Execute(cSql)
-  
-  SQLUPDATE("DPDOCCLI","DOC_ESTADO","N","DOC_ACT=0")
-
-  oDb:Execute(cSql)
-
-RETURN 
-
- 
-
-/*
-  LOCAL cSql,oTable,cWhere
-
-  EJECUTAR("CREATERECORD","DPUNDMED",{"UND_CODIGO","UND_DESCRI","UND_ACTIVO","UND_CANUND" },;
-                                     {"PAR"       ,"PAR"       ,.T.         ,1          },;
-                                   NIL,.T.,"UND_CODIGO"+GetWhere("=","PAR"))
-*/
-RETURN 
- 
-  cSql:=[ SELECT DOC_CODSUC,DOC_TIPDOC,DOC_TIPTRA,DOC_NUMERO,DOC_FECHA,COUNT(*) AS CUANTOS]+;
-        [ FROM DPDOCCLI ]+;
-        [ WHERE DOC_TIPTRA="D" ]+;
-        [ GROUP BY DOC_CODSUC,DOC_TIPDOC,DOC_TIPTRA,DOC_NUMERO,DOC_FECHA ]+;
-        [ HAVING CUANTOS>1 ]+;
-        [ ORDER BY DOC_CODSUC,DOC_TIPDOC,DOC_TIPTRA,DOC_NUMERO,DOC_FECHA ]
-        
-// ? CLPCOPY(cSql)
-
-  oTable:=OpenTable(cSql)
-  
-  WHILE !oTable:Eof()
-
-      cWhere:="DOC_CODSUC"+GetWhere("=",oTable:DOC_CODSUC)+" AND "+;
-              "DOC_TIPDOC"+GetWhere("=",oTable:DOC_TIPDOC)+" AND "+;
-              "DOC_TIPTRA"+GetWhere("=",oTable:DOC_TIPTRA)+" AND "+;
-              "DOC_NUMERO"+GetWhere("=",oTable:DOC_NUMERO)+" AND "+;
-              "DOC_RECNUM"+GetWhere("=",""               )+" AND "+;
-              "DOC_FECHA" +GetWhere("=",oTable:DOC_FECHA )
-
-      SQLDELETE("DPDOCCLI",cWhere+" LIMIT 1")
-
-      oTable:DbSkip()
-
-  ENDDO
-
-//oTable:Browse()
-  oTable:End()
-
-  EJECUTAR("UNIQUETABLAS","DPCLIENTES"  ,"CLI_CODIGO")
-  EJECUTAR("UNIQUETABLAS","DPVENDEDOR"  ,"VEN_CODIGO")
-  EJECUTAR("UNIQUETABLAS","DPRECIBOSCLI","REC_CODSUC,REC_NUMERO")
-
-RETURN .T.
-// EOF
-
