@@ -8,8 +8,8 @@
 
 #INCLUDE "DPXBASE.CH"
 
-PROCE MAIN(cFile,lDelete)
-  LOCAL aData:={},aLine:={},nContar:=0,dFecha
+PROCE MAIN(cFile,lDelete,dFchIni)
+  LOCAL aData:={},aLine:={},nContar:=0,dFecha,cSql
   LOCAL oMovInv,oTable,nCxC,cTipDoc:="CUO",nPrecio,cNumero,nMonto,nValCam,NT1
 
   DEFAULT cFile  :="C:\MIXCLUB\COMP01\mxtrapag.dbf",;
@@ -19,6 +19,8 @@ PROCE MAIN(cFile,lDelete)
     ? cFile,"NO EXISTE"
     RETURN .T.
   ENDIF
+
+  DEFAULT dFchIni:=FCHINIMES(oDp:dFecha)
 
   IF COUNT("DPCLIENTES")<=1
      EJECUTAR("IMPORTMXCLI")  
@@ -54,9 +56,10 @@ PROCE MAIN(cFile,lDelete)
 
   WHILE !A->(EOF()) 
 
-     IF VENCE>=CTOD("01/09/2023") .AND. TIPO="ND" 
+     // IF VENCE>=CTOD("01/09/2023") .AND. TIPO="ND" 
+     // .and. "B-289"=ALLTRIM(A->CODMOVCLI)
 
-       // .and. "B-289"=ALLTRIM(A->CODMOVCLI)
+     IF VENCE>=dFchIni .AND. TIPO="ND" 
 
        nContar++
  
@@ -102,8 +105,9 @@ oDp:oFrameDp:SetText(LSTR(nContar)+" "+LSTR(nMonto))
 
        ENDIF
 
-       nPrecio:=nMonto/(1.16)
-       SQLUPDATE("DPMOVINV",{"MOV_ASOTIP","MOV_IVA","MOV_PRECIO","MOV_TOTAL","MOV_LISTA"},{"MIX",16,nPrecio,nPrecio,"A"},"MOV_TIPDOC"+GetWhere("=",cTipDoc)+" AND MOV_DOCUME"+GetWhere("=",cNumero))
+       // 18/11/19
+       // nPrecio:=nMonto/(1.16)
+       // SQLUPDATE("DPMOVINV",{"MOV_ASOTIP","MOV_IVA","MOV_PRECIO","MOV_TOTAL","MOV_LISTA"},{"MIX",16,nPrecio,nPrecio,"A"},"MOV_TIPDOC"+GetWhere("=",cTipDoc)+" AND MOV_DOCUME"+GetWhere("=",cNumero))
 
     ENDIF
 
@@ -120,6 +124,14 @@ oDp:oFrameDp:SetText(LSTR(nContar)+" "+LSTR(nMonto))
   SQLUPDATE("DPCLIENTES","CLI_CODMON","DBC")
 
   ? LSTR(nContar)+" Registros Migrados en "+LSTR(ABS(SECONDS()-nT1)/60)+" Minutos"
+
+  cSql:=[ UPDATE DPMOVINV ]+;
+        [ INNER JOIN DPDOCCLI      ON MOV_CODSUC=DOC_CODSUC AND MOV_TIPDOC=DOC_TIPDOC AND MOV_DOCUME=DOC_NUMERO AND DOC_TIPTRA='D'   AND DOC_VALCAM>0 ]+;
+        [ SET MOV_MTODIV=ROUND(MOV_TOTAL/DOC_VALCAM,2), ]+;
+        [ MOV_ASOTIP="MIX",MOV_IVA=16,MOV_PRECIO=DOC_BASNET,MOV_LISTA="A",MOV_FECHA=DOC_FECHA ]+;
+        [ WHERE MOV_MTODIV=0 OR MOV_MTODIV=MOV_TOTAL OR MOV_MTODIV IS NULL ]
+
+  oTable:Execute(cSql)
 
   oTable:EXECUTE("SET FOREIGN_KEY_CHECKS = 1")
   oTable:End()
