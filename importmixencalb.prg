@@ -11,7 +11,8 @@
 PROCE MAIN(cDir,cTipDoc,cDescri)
   LOCAL oTable,cFileDoc,cFileCli,cWhere,cCodInv,cWhere,cCodSuc:=oDp:cSucursal,nContar:=0,nValCam:=1
   LOCAL cNumero:="",oMovInv,nMonto:=0,nPrecio,nCxC,cSql
-  LOCAL nT1:=SECONDS()
+  LOCAL nT1:=SECONDS(),dFchIniMes
+
 
   DEFAULT cDir   :="C:\MIXCLUB\COMP01\",;
           cTipDoc:="CUO",;
@@ -109,9 +110,15 @@ PROCE MAIN(cDir,cTipDoc,cDescri)
         [ MOV_ASOTIP="MIX",MOV_IVA=16,MOV_PRECIO=DOC_BASNET,MOV_LISTA="A",MOV_FECHA=DOC_FECHA ]+;
         [ WHERE MOV_MTODIV=0 OR MOV_MTODIV=MOV_TOTAL OR MOV_MTODIV IS NULL ]
 
-//     SQLUPDATE("DPMOVINV",{"MOV_ASOTIP","MOV_FECHA","MOV_IVA","MOV_PRECIO","MOV_TOTAL","MOV_LISTA"},
-//     {"MIX",B->EMISION,16,nPrecio,nPrecio,"A"},"MOV_TIPDOC"+GetWhere("=",cTipDoc)+" AND MOV_DOCUME"+GetWhere("=",cNumero))
+  oTable:Execute(cSql)
 
+  // Asigna a todas las cuotas menor o igual al 10 de cada mes, como una cuota Penalizada
+  // Evita penalizar cuotas penalizadas
+  // 20/11/2023
+  dFchIniMes:=FCHINIMES(oDp:dFecha)+10 
+  cSql      :=[ UPDATE DPMOVINV ]+;
+              [ SET MOV_X     =1 ]+;
+              [ WHERE MOV_FECHA]+GetWhere("<=",dFchIniMes)
 
   oTable:Execute(cSql)
 
