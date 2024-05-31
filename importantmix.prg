@@ -11,6 +11,7 @@
 PROCE MAIN(cFile,lDelete,dFchIni)
   LOCAL aData:={},aLine:={},nContar:=0,dFecha,cSql
   LOCAL oMovInv,oTable,nCxC,cTipDoc:="CUO",nPrecio,cNumero,nMonto,nValCam,NT1
+  LOCAL nMontoDiv
 
   DEFAULT cFile  :="C:\MIXCLUB\COMP01\mxtrapag.dbf",;
           lDelete:=.f.
@@ -26,7 +27,9 @@ PROCE MAIN(cFile,lDelete,dFchIni)
      EJECUTAR("IMPORTMXCLI")  
   ENDIF
 
-  IF lDelete
+  SQLDELETE("DPDOCCLI","DOC_TIPDOC"+GetWhere("=","ANT"))
+
+  IF lDelete 
     SQLDELETE("DPDOCCLI")
     SQLDELETE("DPMOVINV")
     RepViewDbf(cFile,cFile)
@@ -51,6 +54,8 @@ PROCE MAIN(cFile,lDelete,dFchIni)
   USE (cFile)
  
   GO TOP
+  
+  SET DECI TO 2
 
   NT1:=SECONDS()
 
@@ -71,12 +76,14 @@ PROCE MAIN(cFile,lDelete,dFchIni)
        // cNumero:=LEFT(B->NUMALB,2)+"00"+RIGHT(B->NUMALB,6)
        cNumero:=A->NUMDOC
        nValCam:=A->CAMBIO
-       nMonto :=ROUND(A->IMPORTE/A->CAMBIO,2)
+       nMonto :=A->IMPORTE
+       nMontoDiv:=A->IMPORTE/A->CAMBIO
+       // nMonto :=ROUND(A->IMPORTE/A->CAMBIO,2)
        oDp:cNumero:=cNumero
        dFecha :=FCHINIMES(A->VENCE)
 //     nValCam:=1
 
-oDp:oFrameDp:SetText(LSTR(nContar)+" "+LSTR(nMonto))
+oDp:oFrameDp:SetText(LSTR(nContar)+" "+LSTR(nMonto)+"->$"+LSTR(nMontoDiv))
 
        // todos son anticipos Menores de 30 USD
        IF ABS(INT(nMonto))<30
@@ -85,13 +92,18 @@ oDp:oFrameDp:SetText(LSTR(nContar)+" "+LSTR(nMonto))
        ENDIF
 
        // genera la Cuota cuando es igual a 30 dolares
-       IF INT(nMonto)=-30
+       IF INT(ABS(nMontoDiv))=30
+
+          // nCxC:=0 // Estas Cuotas no podran ser facturadas, solo sirve para evitar que sean generadas en los meses futuros
           EJECUTAR("DPDOCCLICREA",NIL,cTipDoc,cNumero,A->CODMOVCLI,dFecha,oDp:cMonedaExt,"V",NIL,nMonto,IMP_IVA,nValCam,dFecha,NIL,oTable,"N",nCxC*0) // cuotas neutras
           SQLUPDATE("DPDOCCLI",{"DOC_TIPORG","DOC_CODTER"},{"MIX",oDp:cCodter},"DOC_TIPDOC"+GetWhere("=","CUO")+" AND DOC_NUMERO"+GetWhere("=",oDp:cNumero))
           EJECUTAR("DPMOVINVCREA",oDp:cSucursal,cTipDoc,cNumero,"CSSP",1,ABS(nMonto),"MENSUAL",1,0,"",VENCE,"V",dFecha,A->CODMOVCLI,"GN",0,nValCam,oMovInv)
+
+// ? "aqui crea CUOTA anticipo",nMontoDiv,cNumero
+
        ENDIF
     
-       IF INT(nMonto)=-60
+       IF ABS(INT(nMontoDiv))=60
 
           // SEPTIEMBRE
           EJECUTAR("DPDOCCLICREA",NIL,cTipDoc,cNumero,A->CODMOVCLI,dFecha,oDp:cMonedaExt,"V",NIL,nMonto/2,IMP_IVA,nValCam,VENCE,NIL,oTable,"N",nCxC*0) // cuotas neutras
